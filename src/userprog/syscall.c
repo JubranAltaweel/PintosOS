@@ -7,6 +7,9 @@
 #include "lib/kernel/stdio.h"
 #include "filesys/file.h"
 #include "filesys/filesys.h"
+#include "threads/malloc.h"
+#include "threads/init.h"
+#include "lib/kernel/list.h"
 
 static void syscall_handler (struct intr_frame *);
 void halt(void);
@@ -17,6 +20,8 @@ int read (int fd, void *buffer, unsigned size);
 int write(int fd, const void* buffer, unsigned size); 
 void exit(int status); 
 struct file* aquire_file(int fd);
+void read_args(struct intr_frame *f, int* args, int size);
+
 
 void
 syscall_init (void) 
@@ -29,40 +34,58 @@ syscall_handler (struct intr_frame *f UNUSED)
 {
   printf ("system call!\n");
   //thread_exit ();
-  
+  printf("_---");
   // struct frame* sys_call_no = f->esp;
-  int sys_call_no = f->esp;
-  switch (sys_call_no)
+  int* sys_call_no = (int*)f->esp;
+  int arg[3];
+  printf("%d", *sys_call_no);
+  switch (*sys_call_no)
   {
   case SYS_HALT:
+    printf("Halt\n");
     halt();
     break;
   
   case SYS_CREATE:
-    bool result = create(f->esp + 4, f->esp + 8);
-    f->eax = result;
+    printf("\nCreate\n");
+    read_args(f, &arg[0], 2);
+    bool succesfull = create((const char*)arg[0], (unsigned)arg[1]);
+    f->eax = succesfull;
     break;
   case SYS_OPEN:
-    int result = open(f-> esp +4);
+    printf("\nopen\n");
+    read_args(f, &arg[0], 1);
+    int result = open((const char*)arg[0]);
     f->eax = result;
     break;
   
   case SYS_CLOSE:
-    close(f->esp +4);
+    printf("\nClose\n");
+    
+    read_args(f, &arg[0], 1);
+    close((int)arg[0]);
     break;
   
   case SYS_READ:
-    int fd = read(f->esp + 4, f->esp + 8, f->esp + 12);
+    printf("\nRead\n");
+
+    read_args(f, &arg[0], 3);
+    int fd = read((int)arg[0], (void*)arg[1], (unsigned)arg[2]);
     f->eax = fd;
     break;
 
   case SYS_WRITE:
-    int fd = write(f->esp + 4, f->esp + 8, f->esp + 12);
-    f->eax = fd;
+    printf("\nWrite\n");
+    
+    read_args(f, &arg[0], 3);
+    int fd_write = write((int)arg[0], (const void*)arg[1], (unsigned)arg[2]);
+    f->eax = fd_write;
     break;
 
   case SYS_EXIT:
-    exit(f->esp + 4);
+    printf("\nExit\n");
+    read_args(f, &arg[0], 1);
+    exit((int)arg[0]);
     break;
   }
 
@@ -83,8 +106,10 @@ int open(const char *file){
   
   struct process_file* p_file = malloc(sizeof(struct process_file));
   p_file->file = file_open; 
+  // if(thread_current()->fd > 128) return -1;
   p_file->fd = thread_current()->fd;
   thread_current()->fd ++;
+  // if()  thread_current()->fd ++;
   list_push_back(&thread_current()->files, &p_file->elem);
   return p_file->fd;
 }
@@ -108,14 +133,17 @@ void close(int fd){
 }
 int read (int fd, void *buffer, unsigned size){
   
-  
   if (fd == 0){
     uint8_t* buffer_d = (uint8_t*) buffer;
     for (unsigned i = 0; i < size; i++ ){
+      printf(".................");
+      
       buffer_d[i] = input_getc();
+      printf("%d", buffer_d[i]);  
     }
     return size;
   }
+  printf("jjjjjjjjjjjjjj");
 
   struct file* p_file = aquire_file(fd);
   if(!p_file) return -1;
@@ -150,6 +178,7 @@ struct file* aquire_file(int fd){
 
   for (struct list_elem* i = list_begin(&t_curr->files); i != list_end(&t_curr->files);
         i = next){
+          next = list_next(i);
           struct process_file* p_file = list_entry(i, struct process_file, elem);
           if (p_file->fd == fd){
             return p_file->file;
@@ -157,4 +186,11 @@ struct file* aquire_file(int fd){
 
   }
   return NULL;
+}
+
+void read_args(struct intr_frame* f, int* args, int size){
+  for(int i = 0 ; i < size; i++){
+    args[i] = *((int *) f->esp + i +1 );
+  }
+
 }

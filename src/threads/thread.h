@@ -102,6 +102,7 @@ struct thread
 
     struct list files;
     int fd;
+   
 
   
   };
