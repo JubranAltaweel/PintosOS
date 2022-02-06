@@ -33,12 +33,8 @@ static void
 syscall_handler (struct intr_frame *f UNUSED) 
 {
   printf ("system call!\n");
-  //thread_exit ();
-  printf("_---");
-  // struct frame* sys_call_no = f->esp;
   int* sys_call_no = (int*)f->esp;
   int arg[3];
-  printf("%d", *sys_call_no);
   switch (*sys_call_no)
   {
   case SYS_HALT:
@@ -52,6 +48,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     bool succesfull = create((const char*)arg[0], (unsigned)arg[1]);
     f->eax = succesfull;
     break;
+
   case SYS_OPEN:
     printf("\nopen\n");
     read_args(f, &arg[0], 1);
@@ -98,6 +95,8 @@ bool create(const char* file, unsigned initial_size){
   bool result = filesys_create(file, initial_size);
   return result;
 }
+
+
 int open(const char *file){
   struct file* file_open = filesys_open(file);
   if(!file_open){
@@ -109,7 +108,6 @@ int open(const char *file){
   // if(thread_current()->fd > 128) return -1;
   p_file->fd = thread_current()->fd;
   thread_current()->fd ++;
-  // if()  thread_current()->fd ++;
   list_push_back(&thread_current()->files, &p_file->elem);
   return p_file->fd;
 }
@@ -136,14 +134,12 @@ int read (int fd, void *buffer, unsigned size){
   if (fd == 0){
     uint8_t* buffer_d = (uint8_t*) buffer;
     for (unsigned i = 0; i < size; i++ ){
-      printf(".................");
-      
       buffer_d[i] = input_getc();
-      printf("%d", buffer_d[i]);  
+ 
     }
     return size;
   }
-  printf("jjjjjjjjjjjjjj");
+ 
 
   struct file* p_file = aquire_file(fd);
   if(!p_file) return -1;
