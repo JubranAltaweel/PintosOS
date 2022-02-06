@@ -102,8 +102,8 @@ struct thread
 
     struct list files;
     int fd;
-   
-
+    //labb 2
+    int64_t ticks_sleep;
   
   };
 
