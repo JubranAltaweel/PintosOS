@@ -104,7 +104,12 @@ struct thread
     int fd;
     //labb 2
     int64_t ticks_sleep;
-  
+    
+    //labb 3
+    tid_t parent; //id for the parent 
+    struct list children; //list for children threads
+    struct child_process* child_p; // a pointer to a child process
+    struct list_elem all_list;
   };
 
 /* If false (default), use round-robin scheduler.
@@ -139,4 +144,6 @@ void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
+int thread_alive(int pid);
+struct child_process *add_child(int pid);
 #endif /* threads/thread.h */

@@ -1,13 +1,17 @@
 #ifndef USERPROG_SYSCALL_H
 #define USERPROG_SYSCALL_H
 #include "threads/thread.h"
+#include "threads/synch.h"
 
 void syscall_init (void);
 
 struct child_process{
     int pid;
-    int t_status;
+    int load_status;
+    int exit_status;
     int status;
+    struct semaphore s_load;
+    struct semaphore s_exit;
 
     struct list_elem elem;
 };
@@ -17,5 +21,7 @@ struct process_file{
     int fd;
     struct list_elem elem;
 };
+
+void remove_children(void);
 
 #endif /* userprog/syscall.h */

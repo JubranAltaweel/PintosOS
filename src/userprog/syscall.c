@@ -10,6 +10,10 @@
 #include "threads/malloc.h"
 #include "threads/init.h"
 #include "lib/kernel/list.h"
+#include "threads/synch.h"
+#include "userprog/process.h"
+
+typedef int pid_t;
 
 static void syscall_handler (struct intr_frame *);
 void halt(void);
@@ -19,8 +23,13 @@ void close(int fd);
 int read (int fd, void *buffer, unsigned size);
 int write(int fd, const void* buffer, unsigned size); 
 void exit(int status); 
+pid_t exec(const char* cmd_line);
 struct file* aquire_file(int fd);
 void read_args(struct intr_frame *f, int* args, int size);
+
+void remove_children(void);
+struct child_process* find_child(int pid);
+void remove_child(struct child_process* child);
 
 
 void
@@ -32,13 +41,13 @@ syscall_init (void)
 static void
 syscall_handler (struct intr_frame *f UNUSED) 
 {
-  printf ("system call!\n");
+  printf ("\nsystem call!\n");
   int* sys_call_no = (int*)f->esp;
   int arg[3];
   switch (*sys_call_no)
   {
   case SYS_HALT:
-    printf("Halt\n");
+    printf("\nHalt\n");
     halt();
     break;
   
@@ -72,7 +81,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     break;
 
   case SYS_WRITE:
-    printf("\nWrite\n");
+    //printf("\nWrite\n");
     
     read_args(f, &arg[0], 3);
     int fd_write = write((int)arg[0], (const void*)arg[1], (unsigned)arg[2]);
@@ -83,6 +92,12 @@ syscall_handler (struct intr_frame *f UNUSED)
     printf("\nExit\n");
     read_args(f, &arg[0], 1);
     exit((int)arg[0]);
+    break;
+  
+  case SYS_EXEC:
+    printf("\nExec\n");
+    read_args(f, &arg[0], 1);
+    f->eax = exec((const char*)arg[0]);
     break;
   }
 
@@ -163,10 +178,29 @@ int write(int fd, const void* buffer, unsigned size){
 
 
 void exit(int status){
-  thread_current()->status = status;
+  if (thread_alive(thread_current()->parent) && thread_current()->child_p){
+    if (status < 0) status = -1;
+    thread_current()->child_p->status = status;
+  }
+  printf("%s: exit(%d)\n", thread_current()->name, status);
   thread_exit();
 
 }
+
+
+pid_t exec(const char* cmd_line){
+  pid_t pid = process_execute(cmd_line);
+  printf("Hello %d", pid);
+  struct child_process* child = find_child(pid);
+  if (!child) return -1;
+  if(child->load_status == 0) sema_down(&child->s_load);
+  if(child->load_status == 2){
+    remove_child(child);
+    return -1;
+  }
+  return pid;
+}
+
 
 struct file* aquire_file(int fd){
   struct thread* t_curr = thread_current();
@@ -189,4 +223,36 @@ void read_args(struct intr_frame* f, int* args, int size){
     args[i] = *((int *) f->esp + i +1 );
   }
 
+}
+
+struct child_process* find_child(int pid){
+  struct thread* t = thread_current();
+  struct list_elem* e;
+  struct list_elem* next;
+  for(e = list_begin(&t->children); e != list_end(&t->children); e = next){
+    next = list_next(e);
+    struct child_process* child = list_entry(e, struct child_process, elem);
+    if(child->pid == pid) return child;
+  }
+  return NULL;
+}
+
+void remove_childen(void){
+  struct thread* t = thread_current();
+  struct list_elem* e;
+  struct list_elem* next;
+  for(e = list_begin(&t->children); e != list_end(&t->children); e = next){
+    next = list_next(e);
+    struct child_process* child = list_entry(e, struct child_process, elem);
+    list_remove(&child->elem);
+    free(child);
+
+    
+  }  
+
+}
+
+void remove_child(struct child_process* child){
+  list_remove(&child->elem);
+  free(child);
 }

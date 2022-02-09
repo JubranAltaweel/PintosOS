@@ -14,6 +14,8 @@
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
+#include "userprog/syscall.h"
+#include "threads/malloc.h"
 
 /* Random value for struct thread's `magic' member.
    Used to detect stack overflow.  See the big comment at the top
@@ -23,6 +25,8 @@
 /* List of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
 static struct list ready_list;
+
+static struct list all_threads;
 
 /* Idle thread. */
 static struct thread *idle_thread;
@@ -87,6 +91,7 @@ thread_init (void)
 
   lock_init (&tid_lock);
   list_init (&ready_list);
+  list_init (&all_threads);
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
@@ -192,6 +197,12 @@ thread_create (const char *name, int priority,
   sf = alloc_frame (t, sizeof *sf);
   sf->eip = switch_entry;
 
+  /* Labb 3: add the child process to the list */
+  t->parent = thread_tid();
+  struct child_process* cp = add_child(t->tid);
+  t->child_p = cp;
+  
+
   /* Add to run queue. */
   thread_unblock (t);
 
@@ -283,6 +294,7 @@ thread_exit (void)
   /* Just set our status to dying and schedule another process.
      We will be destroyed during the call to schedule_tail(). */
   intr_disable ();
+  list_remove(&thread_current()->all_list);
   thread_current ()->status = THREAD_DYING;
   schedule ();
   NOT_REACHED ();
@@ -438,6 +450,12 @@ init_thread (struct thread *t, const char *name, int priority)
   t->magic = THREAD_MAGIC;
   list_init(&t->files);
   t->fd = 2;
+
+  // labb 3
+  list_push_back(&all_threads, &t->all_list);
+  list_init(&t->children);
+  t->child_p = NULL;
+  t->parent = -1;
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
@@ -553,3 +571,27 @@ allocate_tid (void)
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
+
+int thread_alive(int pid){
+  struct list_elem *e;
+  struct list_elem *next;
+
+  for(e = list_begin(&all_threads); e != list_end(&all_threads); e = next){
+    next = list_next(e);
+    struct thread* t = list_entry(e, struct thread, all_list);
+    if(t->tid == pid) return 1;
+  }
+  return 0;
+}
+
+struct child_process* add_child(int pid){
+  struct child_process *cp = (struct child_process*)malloc(sizeof(struct child_process));
+  cp->pid = pid;
+  cp->load_status = 0; // not loaded
+  cp->exit_status = 0; 
+  sema_init(&cp->s_load, 0);
+  sema_init(&cp->s_exit, 0);
+  list_push_back(&thread_current()->children, &cp->elem);
+
+  return cp;
+}
