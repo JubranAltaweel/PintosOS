@@ -178,11 +178,14 @@ int write(int fd, const void* buffer, unsigned size){
 
 
 void exit(int status){
-  if (thread_alive(thread_current()->parent) && thread_current()->child_p){
+  struct thread* cur = thread_current();
+  
+  if (thread_alive(cur->parent) && cur->child_p){
     if (status < 0) status = -1;
-    thread_current()->child_p->status = status;
+    cur->child_p->exit_status = status;
+    //cur->parent->status = status;
   }
-  printf("%s: exit(%d)\n", thread_current()->name, status);
+  printf("%s: exit(%d)\n", cur->name, status);
   thread_exit();
 
 }
@@ -190,11 +193,15 @@ void exit(int status){
 
 pid_t exec(const char* cmd_line){
   pid_t pid = process_execute(cmd_line);
-  printf("Hello %d", pid);
+  printf("\nHello %d\n", pid);
   struct child_process* child = find_child(pid);
-  if (!child) return -1;
-  if(child->load_status == 0) sema_down(&child->s_load);
-  if(child->load_status == 2){
+  printf("-----------");
+  if (!child){ 
+    return -1;}
+  if(child->load_status == 0) //not loaded yet wait for sema_up
+    sema_down(&child->s_load);
+  if(child->load_status == 2){ //failed to load child process
+    printf(".....................");
     remove_child(child);
     return -1;
   }
@@ -237,7 +244,7 @@ struct child_process* find_child(int pid){
   return NULL;
 }
 
-void remove_childen(void){
+void remove_children(void){
   struct thread* t = thread_current();
   struct list_elem* e;
   struct list_elem* next;
@@ -245,9 +252,7 @@ void remove_childen(void){
     next = list_next(e);
     struct child_process* child = list_entry(e, struct child_process, elem);
     list_remove(&child->elem);
-    free(child);
-
-    
+    free(child);  
   }  
 
 }

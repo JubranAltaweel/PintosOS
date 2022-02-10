@@ -294,6 +294,8 @@ thread_exit (void)
   /* Just set our status to dying and schedule another process.
      We will be destroyed during the call to schedule_tail(). */
   intr_disable ();
+ //
+  
   list_remove(&thread_current()->all_list);
   thread_current ()->status = THREAD_DYING;
   schedule ();
@@ -448,6 +450,8 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
+  
+  
   list_init(&t->files);
   t->fd = 2;
 
@@ -588,7 +592,7 @@ struct child_process* add_child(int pid){
   struct child_process *cp = (struct child_process*)malloc(sizeof(struct child_process));
   cp->pid = pid;
   cp->load_status = 0; // not loaded
-  cp->exit_status = 0; 
+  //cp->exit_status = 0; 
   sema_init(&cp->s_load, 0);
   sema_init(&cp->s_exit, 0);
   list_push_back(&thread_current()->children, &cp->elem);

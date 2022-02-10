@@ -99,17 +99,21 @@ struct thread
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
-
+    struct list_elem all_list;
+    
     struct list files;
     int fd;
     //labb 2
     int64_t ticks_sleep;
     
     //labb 3
-    tid_t parent; //id for the parent 
+    //tid_t parent; //id for the parent 
+    
+    tid_t parent;
+    
     struct list children; //list for children threads
-    struct child_process* child_p; // a pointer to a child process
-    struct list_elem all_list;
+    struct child_process* child_p; // IF CHILD process
+    
   };
 
 /* If false (default), use round-robin scheduler.

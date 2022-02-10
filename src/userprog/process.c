@@ -63,8 +63,12 @@ start_process (void *file_name_)
   success = load (file_name, &if_.eip, &if_.esp);
 
   /* labb 3 */
-  if (success) thread_current()->child_p->load_status = 1; //load successfull
-  else thread_current()->child_p->load_status = 2; //load unsuccessfull
+  if (success){
+    thread_current()->child_p->load_status = 1; //load successfull
+  
+  }
+  else 
+    thread_current()->child_p->load_status = 2; //load unsuccessfull
   sema_up(&thread_current()->child_p->s_load);
 
   /* If load failed, quit. */
@@ -106,10 +110,9 @@ process_exit (void)
 
   /*labb 3*/
   remove_children();
-  if (thread_alive(cur->parent)){
-    cur->child_p->exit_status = 1;
-    sema_up(&cur->child_p->s_exit);
-  }
+  // if (thread_alive(cur->parent)){
+  //   sema_up(&cur->child_p->s_exit);
+  // }
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
