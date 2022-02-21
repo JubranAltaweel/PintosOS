@@ -110,8 +110,8 @@ struct thread
     //tid_t parent; //id for the parent 
     
     tid_t parent;
-    
-    struct list children; //list for children threads
+   
+    struct list child_list; //list for children threads
     struct child_process* child_p; // IF CHILD process
     
   };

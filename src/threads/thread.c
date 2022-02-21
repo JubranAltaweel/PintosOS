@@ -201,8 +201,6 @@ thread_create (const char *name, int priority,
   t->parent = thread_tid();
   struct child_process* cp = add_child(t->tid);
   t->child_p = cp;
-  
-
   /* Add to run queue. */
   thread_unblock (t);
 
@@ -294,7 +292,6 @@ thread_exit (void)
   /* Just set our status to dying and schedule another process.
      We will be destroyed during the call to schedule_tail(). */
   intr_disable ();
- //
   
   list_remove(&thread_current()->all_list);
   thread_current ()->status = THREAD_DYING;
@@ -457,7 +454,7 @@ init_thread (struct thread *t, const char *name, int priority)
 
   // labb 3
   list_push_back(&all_threads, &t->all_list);
-  list_init(&t->children);
+  list_init(&t->child_list);
   t->child_p = NULL;
   t->parent = -1;
 }
@@ -589,13 +586,13 @@ int thread_alive(int pid){
 }
 
 struct child_process* add_child(int pid){
-  struct child_process *cp = (struct child_process*)malloc(sizeof(struct child_process));
+  struct child_process *cp = malloc(sizeof(struct child_process));
   cp->pid = pid;
   cp->load_status = 0; // not loaded
-  //cp->exit_status = 0; 
+  cp->exit_status = 2; 
   sema_init(&cp->s_load, 0);
   sema_init(&cp->s_exit, 0);
-  list_push_back(&thread_current()->children, &cp->elem);
+  list_push_back(&thread_current()->child_list, &cp->elem);
 
   return cp;
 }

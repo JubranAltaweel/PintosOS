@@ -18,9 +18,10 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "userprog/syscall.h"
+#include "threads/malloc.h"
 
 static thread_func start_process NO_RETURN;
-static bool load (const char *cmdline, void (**eip) (void), void **esp);
+static bool load (const char *cmdline, void (**eip) (void), void **esp, char** sptr); //add char** sptr
 
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
@@ -39,6 +40,11 @@ process_execute (const char *file_name)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
 
+  // labb 4
+  char* sptr;
+  file_name = strtok_r((char *)file_name, " ", &sptr);
+
+
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
@@ -55,12 +61,17 @@ start_process (void *file_name_)
   struct intr_frame if_;
   bool success;
 
+  // labb 4
+  char* sptr;
+  //
+  file_name = strtok_r((char *)file_name, " ", &sptr);
+
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
-  success = load (file_name, &if_.eip, &if_.esp);
+  success = load (file_name, &if_.eip, &if_.esp, &sptr); //add &sptr
 
   /* labb 3 */
   if (success){
@@ -109,10 +120,11 @@ process_exit (void)
   uint32_t *pd;
 
   /*labb 3*/
-  remove_children();
-  // if (thread_alive(cur->parent)){
-  //   sema_up(&cur->child_p->s_exit);
-  // }
+  // remove_children();
+  if (thread_alive(cur->parent)){
+    cur->child_p->exit_status--;
+    sema_up(&cur->child_p->s_exit);
+  }
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
@@ -211,7 +223,7 @@ struct Elf32_Phdr
 #define PF_W 2          /* Writable. */
 #define PF_R 4          /* Readable. */
 
-static bool setup_stack (void **esp);
+static bool setup_stack (void **esp, const char* filename, char** sptr); // add const char* filename, char** sptr
 static bool validate_segment (const struct Elf32_Phdr *, struct file *);
 static bool load_segment (struct file *file, off_t ofs, uint8_t *upage, uint32_t uoffset,
                           uint32_t read_bytes, uint32_t zero_bytes,
@@ -222,7 +234,7 @@ static bool load_segment (struct file *file, off_t ofs, uint8_t *upage, uint32_t
    and its initial stack pointer into *ESP.
    Returns true if successful, false otherwise. */
 bool
-load (const char *file_name, void (**eip) (void), void **esp) 
+load (const char *file_name, void (**eip) (void), void **esp, char**sptr) //add char** sptr 
 {
   struct thread *t = thread_current ();
   struct Elf32_Ehdr ehdr;
@@ -238,7 +250,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
   process_activate ();
 
   /* Set up stack. */
-  if (!setup_stack (esp)){
+  if (!setup_stack (esp, file_name, sptr)){ //add file_name, sptr
     goto done;
   }
 
@@ -500,7 +512,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage, uint32_t page_offset
 /* Create a minimal stack by mapping a zeroed page at the top of
    user virtual memory. */
 static bool
-setup_stack (void **esp) 
+setup_stack (void **esp, const char* file_name, char** sptr) // add const char* file_name, char** sptr 
 {
   uint8_t *kpage;
   bool success = false;
@@ -510,11 +522,73 @@ setup_stack (void **esp)
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
       if (success)
-        *esp = PHYS_BASE - 12;
-      else
+        *esp = PHYS_BASE;
+      else{
         palloc_free_page (kpage);
+        return success;
+      }
     }
+  
+  // labb 4 
+
+  char* token;
+  int default_arg_size = 2;
+  char** argv = malloc(default_arg_size*sizeof(char *));
+  char** content = malloc(default_arg_size*sizeof(char*));
+  int argc = 0;
+
+  for(token = (char*) file_name; token != NULL; token = strtok_r(NULL, " ", sptr)){
+    content[argc] = token;
+    argc++;
+    if(argc >= default_arg_size){
+      default_arg_size *= 2;
+      content = realloc(content, default_arg_size* sizeof(char *));
+      argv = realloc(argv, default_arg_size* sizeof(char *));
+    }
+  }
+
+  int byte_size = 0;
+
+  for(int i = argc -1; i >= 0; i--){
+    *esp -= strlen(content[i]) +1;
+    byte_size += strlen(content[i]) +1;
+    argv[i] = *esp;
+    memcpy(*esp, content[i], strlen(content[i]) +1);
+  }
+
+  argv[argc] = 0;
+
+  size_t t = (size_t)*esp %4;
+  if(t){
+    *esp -= t;
+    byte_size += t;
+    memcpy(*esp, &argv[argc], sizeof(char*));
+  }
+
+  for(int i = argc; i >= 0; i--){
+    *esp -= sizeof(char*);
+    byte_size += sizeof(char*);
+    memcpy(*esp, &argv[i], sizeof(char*));
+  }
+
+  token = *esp;
+  *esp -= sizeof(char**);
+  byte_size += sizeof(char**);
+  memcpy(*esp, &token, sizeof(char**));
+
+  *esp -= sizeof(int);
+  byte_size += sizeof(int);
+  memcpy(*esp, &argc, sizeof(int));
+
+  *esp -= sizeof(void*);
+  byte_size += sizeof(void*);
+  memcpy(*esp, &argv[argc], sizeof(void*));
+
+  free(argv);
+  free(content);
+
   return success;
+
 }
 
 /* Adds a mapping from user virtual address UPAGE to kernel

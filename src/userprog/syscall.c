@@ -12,6 +12,7 @@
 #include "lib/kernel/list.h"
 #include "threads/synch.h"
 #include "userprog/process.h"
+#include <stdlib.h>
 
 typedef int pid_t;
 
@@ -182,7 +183,7 @@ void exit(int status){
   
   if (thread_alive(cur->parent) && cur->child_p){
     if (status < 0) status = -1;
-    cur->child_p->exit_status = status;
+    cur->child_p->status = status;
     //cur->parent->status = status;
   }
   printf("%s: exit(%d)\n", cur->name, status);
@@ -193,15 +194,14 @@ void exit(int status){
 
 pid_t exec(const char* cmd_line){
   pid_t pid = process_execute(cmd_line);
-  printf("\nHello %d\n", pid);
   struct child_process* child = find_child(pid);
-  printf("-----------");
+
   if (!child){ 
     return -1;}
   if(child->load_status == 0) //not loaded yet wait for sema_up
     sema_down(&child->s_load);
   if(child->load_status == 2){ //failed to load child process
-    printf(".....................");
+
     remove_child(child);
     return -1;
   }
@@ -236,7 +236,7 @@ struct child_process* find_child(int pid){
   struct thread* t = thread_current();
   struct list_elem* e;
   struct list_elem* next;
-  for(e = list_begin(&t->children); e != list_end(&t->children); e = next){
+  for(e = list_begin(&t->child_list); e != list_end(&t->child_list); e = next){
     next = list_next(e);
     struct child_process* child = list_entry(e, struct child_process, elem);
     if(child->pid == pid) return child;
@@ -244,18 +244,18 @@ struct child_process* find_child(int pid){
   return NULL;
 }
 
-void remove_children(void){
-  struct thread* t = thread_current();
-  struct list_elem* e;
-  struct list_elem* next;
-  for(e = list_begin(&t->children); e != list_end(&t->children); e = next){
-    next = list_next(e);
-    struct child_process* child = list_entry(e, struct child_process, elem);
-    list_remove(&child->elem);
-    free(child);  
-  }  
+// void remove_children(void){
+//   struct thread* t = thread_current();
+//   struct list_elem* e;
+//   struct list_elem* next;
+//   for(e = list_begin(&t->child_list); e != list_end(&t->child_list); e = next){
+//     next = list_next(e);
+//     struct child_process* child = list_entry(e, struct child_process, elem);
+//     list_remove(&child->elem);
+//     free(child);  
+//   }  
 
-}
+// }
 
 void remove_child(struct child_process* child){
   list_remove(&child->elem);
