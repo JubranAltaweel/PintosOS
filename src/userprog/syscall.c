@@ -186,6 +186,7 @@ void exit(int status){
     cur->child_p->status = status;
     //cur->parent->status = status;
   }
+  remove_children();
   printf("%s: exit(%d)\n", cur->name, status);
   thread_exit();
 
