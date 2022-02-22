@@ -244,18 +244,18 @@ struct child_process* find_child(int pid){
   return NULL;
 }
 
-// void remove_children(void){
-//   struct thread* t = thread_current();
-//   struct list_elem* e;
-//   struct list_elem* next;
-//   for(e = list_begin(&t->child_list); e != list_end(&t->child_list); e = next){
-//     next = list_next(e);
-//     struct child_process* child = list_entry(e, struct child_process, elem);
-//     list_remove(&child->elem);
-//     free(child);  
-//   }  
+void remove_children(void){
+  struct thread* t = thread_current();
+  struct list_elem* e;
+  struct list_elem* next;
+  for(e = list_begin(&t->child_list); e != list_end(&t->child_list); e = next){
+    next = list_next(e);
+    struct child_process* child = list_entry(e, struct child_process, elem);
+    list_remove(&child->elem);
+    free(child);  
+  }  
 
-// }
+}
 
 void remove_child(struct child_process* child){
   list_remove(&child->elem);

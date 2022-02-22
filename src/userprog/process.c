@@ -120,7 +120,7 @@ process_exit (void)
   uint32_t *pd;
 
   /*labb 3*/
-  // remove_children();
+  remove_children();
   if (thread_alive(cur->parent)){
     cur->child_p->exit_status--;
     sema_up(&cur->child_p->s_exit);
