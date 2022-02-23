@@ -31,7 +31,7 @@ void read_args(struct intr_frame *f, int* args, int size);
 void remove_children(void);
 struct child_process* find_child(int pid);
 void remove_child(struct child_process* child);
-
+void close_all_files(void);
 
 void
 syscall_init (void) 
@@ -187,6 +187,7 @@ void exit(int status){
     //cur->parent->status = status;
   }
   remove_children();
+  close_all_files();
   printf("%s: exit(%d)\n", cur->name, status);
   thread_exit();
 
@@ -261,4 +262,20 @@ void remove_children(void){
 void remove_child(struct child_process* child){
   list_remove(&child->elem);
   free(child);
+}
+void close_all_files(void){
+  struct thread* t_curr = thread_current();
+  struct list_elem* next;
+
+  for (struct list_elem* i = list_begin(&t_curr->files); i != list_end(&t_curr->files);
+        i = next){
+          next = list_next(i);
+          struct process_file* p_file = list_entry(i, struct process_file, elem);
+          
+          file_close(p_file->file);
+          list_remove(&p_file->elem);
+          free(p_file);
+          
+
+        }
 }

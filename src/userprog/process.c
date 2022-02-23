@@ -43,7 +43,7 @@ process_execute (const char *file_name)
   // labb 4
   char* sptr;
   file_name = strtok_r((char *)file_name, " ", &sptr);
-
+  if(!file_name) file_name = "";
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
@@ -65,6 +65,7 @@ start_process (void *file_name_)
   char* sptr;
   //
   file_name = strtok_r((char *)file_name, " ", &sptr);
+  if(!file_name) thread_exit();
 
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
@@ -120,7 +121,6 @@ process_exit (void)
   uint32_t *pd;
 
   /*labb 3*/
-  //remove_children();
   if (thread_alive(cur->parent)){
     cur->child_p->exit_status--;
     sema_up(&cur->child_p->s_exit);
@@ -548,21 +548,19 @@ setup_stack (void **esp, const char* file_name, char** sptr) // add const char* 
   }
 
   int byte_size = 0;
-
   for(int i = argc -1; i >= 0; i--){
     *esp -= strlen(content[i]) +1;
     byte_size += strlen(content[i]) +1;
     argv[i] = *esp;
     memcpy(*esp, content[i], strlen(content[i]) +1);
   }
-
-  argv[argc] = 0;
-  printf("Test name: %s",argv[0]);
+  
+  argv[argc] = NULL;
   size_t t = (size_t)*esp %4;
   if(t){
     *esp -= t;
     byte_size += t;
-    memcpy(*esp, &argv[argc], sizeof(char*));
+    memcpy(*esp, &argv[argc], t);
   }
 
   for(int i = argc; i >= 0; i--){
