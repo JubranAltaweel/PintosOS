@@ -5,12 +5,14 @@
 
 void syscall_init (void);
 void remove_children(void);
+struct child_process* find_child(int pid);
 
 struct child_process{
     int pid;
     int load_status;
     int exit_status;
     int status;
+    int wait;
     struct semaphore s_load;
     struct semaphore s_exit;
 

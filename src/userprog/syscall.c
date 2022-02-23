@@ -13,6 +13,8 @@
 #include "threads/synch.h"
 #include "userprog/process.h"
 #include <stdlib.h>
+#include "userprog/pagedir.h"
+#include "threads/vaddr.h"
 
 typedef int pid_t;
 
@@ -24,14 +26,19 @@ void close(int fd);
 int read (int fd, void *buffer, unsigned size);
 int write(int fd, const void* buffer, unsigned size); 
 void exit(int status); 
+int wait(pid_t pid);
 pid_t exec(const char* cmd_line);
 struct file* aquire_file(int fd);
 void read_args(struct intr_frame *f, int* args, int size);
 
 void remove_children(void);
-struct child_process* find_child(int pid);
+
 void remove_child(struct child_process* child);
 void close_all_files(void);
+void validate_pointer(const void* ptr);
+void validate_string(const void* string);
+void validate_buffer(const void* buffer, unsigned size);
+int get_pagepointer(const void* pointer);
 
 void
 syscall_init (void) 
@@ -42,41 +49,46 @@ syscall_init (void)
 static void
 syscall_handler (struct intr_frame *f UNUSED) 
 {
-  printf ("\nsystem call!\n");
-  int* sys_call_no = (int*)f->esp;
+  //printf ("\nsystem call!\n");
+  int* sys_call_no =(int *) get_pagepointer((const void*)f->esp);
   int arg[3];
   switch (*sys_call_no)
   {
   case SYS_HALT:
-    printf("\nHalt\n");
+    //printf("\nHalt\n");
     halt();
     break;
   
   case SYS_CREATE:
-    printf("\nCreate\n");
+    //printf("\nCreate\n");
+    
     read_args(f, &arg[0], 2);
+    validate_string((const void*) arg[0]);
     bool succesfull = create((const char*)arg[0], (unsigned)arg[1]);
     f->eax = succesfull;
     break;
 
   case SYS_OPEN:
-    printf("\nopen\n");
+    //printf("\nopen\n");
+    
     read_args(f, &arg[0], 1);
+    validate_string((const void*) arg[0]);
     int result = open((const char*)arg[0]);
     f->eax = result;
     break;
   
   case SYS_CLOSE:
-    printf("\nClose\n");
+    //printf("\nClose\n");
     
     read_args(f, &arg[0], 1);
     close((int)arg[0]);
     break;
   
   case SYS_READ:
-    printf("\nRead\n");
+    //printf("\nRead\n");
 
     read_args(f, &arg[0], 3);
+    validate_buffer((const void*) arg[1], (unsigned)arg[2]);
     int fd = read((int)arg[0], (void*)arg[1], (unsigned)arg[2]);
     f->eax = fd;
     break;
@@ -85,22 +97,33 @@ syscall_handler (struct intr_frame *f UNUSED)
     //printf("\nWrite\n");
     
     read_args(f, &arg[0], 3);
+    validate_buffer((const void*) arg[1], (unsigned)arg[2]);
+    arg[1] = get_pagepointer((const void*) arg[1]);
     int fd_write = write((int)arg[0], (const void*)arg[1], (unsigned)arg[2]);
     f->eax = fd_write;
     break;
 
   case SYS_EXIT:
-    printf("\nExit\n");
+    //printf("\nExit\n");
     read_args(f, &arg[0], 1);
     exit((int)arg[0]);
     break;
   
   case SYS_EXEC:
-    printf("\nExec\n");
+    //printf("\nExec\n");
     read_args(f, &arg[0], 1);
+
+    validate_string((const void*) arg[0]);
+    arg[0] = get_pagepointer((const void*) arg[0]);
     f->eax = exec((const char*)arg[0]);
     break;
+  
+  case SYS_WAIT:
+    //printf("\nWait\n");
+    read_args(f,&arg[0], 1);
+    f->eax = wait((pid_t)arg[0]);
   }
+
 
 }
 void halt(void){
@@ -210,6 +233,10 @@ pid_t exec(const char* cmd_line){
   return pid;
 }
 
+int wait(pid_t pid){
+  return process_wait(pid);
+}
+
 
 struct file* aquire_file(int fd){
   struct thread* t_curr = thread_current();
@@ -230,6 +257,7 @@ struct file* aquire_file(int fd){
 void read_args(struct intr_frame* f, int* args, int size){
   for(int i = 0 ; i < size; i++){
     args[i] = *((int *) f->esp + i +1 );
+    validate_pointer((const void*) args[i]);
   }
 
 }
@@ -278,4 +306,28 @@ void close_all_files(void){
           
 
         }
+}
+
+void validate_pointer(const void* ptr){
+  if(!is_user_vaddr(ptr) ){
+    exit(-1);
+  }
+}
+
+void  validate_string(const void* string){
+  for(;*(char*)get_pagepointer(string) != 0; string = (char*)string +1);
+}
+
+void validate_buffer(const void* buffer, unsigned size){
+  char* local_buff = (char*) buffer;
+  for(unsigned i = 0; i < size; i++){
+    validate_pointer((const void*)local_buff);
+    local_buff ++;
+  }
+}
+
+int get_pagepointer(const void* pointer){
+  void *ptr = pagedir_get_page(thread_current()->pagedir, pointer);
+  if(!ptr) exit(-1);
+  return (int)ptr;
 }

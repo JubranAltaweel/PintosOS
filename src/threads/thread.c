@@ -589,7 +589,8 @@ struct child_process* add_child(int pid){
   struct child_process *cp = malloc(sizeof(struct child_process));
   cp->pid = pid;
   cp->load_status = 0; // not loaded
-  cp->exit_status = 2; 
+  cp->exit_status = 0; 
+  cp->wait = 0;
   sema_init(&cp->s_load, 0);
   sema_init(&cp->s_exit, 0);
   list_push_back(&thread_current()->child_list, &cp->elem);

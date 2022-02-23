@@ -110,7 +110,16 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid UNUSED) 
 {
-  return -1;
+  struct child_process* child = find_child(child_tid);
+  if(child == NULL || child->wait) return -1;
+  child->wait = 1;
+  if(!child->exit_status){
+    sema_down(&child->s_exit);
+  }
+  int exit_status = child->status;
+  list_remove(&child->elem);
+  free(child);
+  return exit_status;
 }
 
 /* Free the current process's resources. */
@@ -122,7 +131,7 @@ process_exit (void)
 
   /*labb 3*/
   if (thread_alive(cur->parent)){
-    cur->child_p->exit_status--;
+    cur->child_p->exit_status = 1;
     sema_up(&cur->child_p->s_exit);
   }
 
