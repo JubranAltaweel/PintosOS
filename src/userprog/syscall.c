@@ -31,9 +31,9 @@ pid_t exec(const char* cmd_line);
 struct file* aquire_file(int fd);
 void read_args(struct intr_frame *f, int* args, int size);
 
-void remove_children(void);
+void remove_all_pc(void);
 
-void remove_child(struct child_process* child);
+void remove_pc(struct parent_child* pc);
 void close_all_files(void);
 void validate_pointer(const void* ptr);
 void validate_string(const void* string);
@@ -144,7 +144,6 @@ int open(const char *file){
   
   struct process_file* p_file = malloc(sizeof(struct process_file));
   p_file->file = file_open; 
-  // if(thread_current()->fd > 128) return -1;
   p_file->fd = thread_current()->fd;
   thread_current()->fd ++;
   list_push_back(&thread_current()->files, &p_file->elem);
@@ -203,31 +202,31 @@ int write(int fd, const void* buffer, unsigned size){
 
 void exit(int status){
   struct thread* cur = thread_current();
-  
-  if (thread_alive(cur->parent) && cur->child_p){
+
+  if (thread_alive(cur->parent_id)){
     if (status < 0) status = -1;
-    cur->child_p->status = status;
+    cur->pc_ptr->status = status;
     //cur->parent->status = status;
   }
-  remove_children();
+  
+
   close_all_files();
+  remove_all_pc();
   printf("%s: exit(%d)\n", cur->name, status);
   thread_exit();
-
 }
 
 
 pid_t exec(const char* cmd_line){
   pid_t pid = process_execute(cmd_line);
-  struct child_process* child = find_child(pid);
+  struct parent_child* pc = find_pc(pid);
 
-  if (!child){ 
+  if (!pc){ 
     return -1;}
-  if(child->load_status == 0) //not loaded yet wait for sema_up
-    sema_down(&child->s_load);
-  if(child->load_status == 2){ //failed to load child process
-
-    remove_child(child);
+  if(pc->load_status == 0) //not loaded yet wait for sema_up
+    sema_down(&pc->sema_load);
+  if(pc->load_status == 2){ //failed to load child process
+    remove_pc(pc);
     return -1;
   }
   return pid;
@@ -262,34 +261,34 @@ void read_args(struct intr_frame* f, int* args, int size){
 
 }
 
-struct child_process* find_child(int pid){
+struct parent_child* find_pc(pid_t pid){
   struct thread* t = thread_current();
   struct list_elem* e;
   struct list_elem* next;
   for(e = list_begin(&t->child_list); e != list_end(&t->child_list); e = next){
     next = list_next(e);
-    struct child_process* child = list_entry(e, struct child_process, elem);
-    if(child->pid == pid) return child;
+    struct parent_child* pc = list_entry(e, struct parent_child, elem);
+    if(pc->pid == pid) return pc;
   }
   return NULL;
 }
 
-void remove_children(void){
+void remove_all_pc(void){
   struct thread* t = thread_current();
   struct list_elem* e;
   struct list_elem* next;
   for(e = list_begin(&t->child_list); e != list_end(&t->child_list); e = next){
     next = list_next(e);
-    struct child_process* child = list_entry(e, struct child_process, elem);
-    list_remove(&child->elem);
-    free(child);  
+    struct parent_child* pc = list_entry(e, struct parent_child, elem);
+    list_remove(&pc->elem);
+    free(pc);  
   }  
 
 }
 
-void remove_child(struct child_process* child){
-  list_remove(&child->elem);
-  free(child);
+void remove_pc(struct parent_child* pc){
+  list_remove(&pc->elem);
+  free(pc);
 }
 void close_all_files(void){
   struct thread* t_curr = thread_current();

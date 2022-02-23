@@ -3,19 +3,25 @@
 #include "threads/thread.h"
 #include "threads/synch.h"
 
+
+typedef int pid_t;
+
 void syscall_init (void);
-void remove_children(void);
-struct child_process* find_child(int pid);
+void remove_all_cp(void);
+struct parent_child* find_pc(pid_t pid);
 
-struct child_process{
-    int pid;
-    int load_status;
-    int exit_status;
+struct parent_child{
+    pid_t pid;
+    int alive_count;
     int status;
-    int wait;
-    struct semaphore s_load;
-    struct semaphore s_exit;
+    
+    int load_status;
+    int exit;
+    
+    struct semaphore sema_load;
+    struct semaphore sema_exit;
 
+    struct thread* parent;
     struct list_elem elem;
 };
 

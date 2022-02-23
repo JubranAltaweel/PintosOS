@@ -198,9 +198,9 @@ thread_create (const char *name, int priority,
   sf->eip = switch_entry;
 
   /* Labb 3: add the child process to the list */
-  t->parent = thread_tid();
-  struct child_process* cp = add_child(t->tid);
-  t->child_p = cp;
+  t->parent_id = thread_tid();
+  struct parent_child* pc = init_pc(t->tid);
+  t->pc_ptr = pc;
   /* Add to run queue. */
   thread_unblock (t);
 
@@ -455,8 +455,8 @@ init_thread (struct thread *t, const char *name, int priority)
   // labb 3
   list_push_back(&all_threads, &t->all_list);
   list_init(&t->child_list);
-  t->child_p = NULL;
-  t->parent = -1;
+  t->pc_ptr = NULL;
+  //t->parent = -1;
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
@@ -573,27 +573,32 @@ allocate_tid (void)
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
 
-int thread_alive(int pid){
+int thread_alive(tid_t tid){
   struct list_elem *e;
   struct list_elem *next;
 
   for(e = list_begin(&all_threads); e != list_end(&all_threads); e = next){
     next = list_next(e);
     struct thread* t = list_entry(e, struct thread, all_list);
-    if(t->tid == pid) return 1;
+    if(t->tid == tid) return 1;
   }
   return 0;
 }
 
-struct child_process* add_child(int pid){
-  struct child_process *cp = malloc(sizeof(struct child_process));
-  cp->pid = pid;
-  cp->load_status = 0; // not loaded
-  cp->exit_status = 0; 
-  cp->wait = 0;
-  sema_init(&cp->s_load, 0);
-  sema_init(&cp->s_exit, 0);
-  list_push_back(&thread_current()->child_list, &cp->elem);
+struct parent_child* init_pc(pid_t pid){
+  struct parent_child *pc = malloc(sizeof(struct parent_child));
+  pc->pid = pid;
+  //cp->exit_status = 0; 
+  pc->alive_count = 0;
+ 
+  pc->load_status = 0; // not loaded
+  pc->exit = 0; //false
+ 
+  sema_init(&pc->sema_load, 0);
+  sema_init(&pc->sema_exit, 0);
+ 
+  pc->parent = thread_current();
+  list_push_back(&thread_current()->child_list, &pc->elem);
 
-  return cp;
+  return pc;
 }

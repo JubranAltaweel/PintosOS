@@ -4,7 +4,7 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
-
+#include "userprog/syscall.h"
 /* States in a thread's life cycle. */
 enum thread_status
   {
@@ -109,10 +109,10 @@ struct thread
     //labb 3
     //tid_t parent; //id for the parent 
     
-    tid_t parent;
+    tid_t parent_id;
    
     struct list child_list; //list for children threads
-    struct child_process* child_p; // IF CHILD process
+    struct parent_child* pc_ptr; // IF CHILD process
     
   };
 
@@ -148,6 +148,6 @@ void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
-int thread_alive(int pid);
-struct child_process *add_child(int pid);
+int thread_alive(tid_t tid);
+struct parent_child *init_pc(tid_t pid);
 #endif /* threads/thread.h */

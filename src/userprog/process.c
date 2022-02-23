@@ -75,13 +75,15 @@ start_process (void *file_name_)
   success = load (file_name, &if_.eip, &if_.esp, &sptr); //add &sptr
 
   /* labb 3 */
-  if (success){
-    thread_current()->child_p->load_status = 1; //load successfull
+  // if (success){
+  //   thread_current()->pc_ptr->load_status = 1; //load successfull
+  // }
+  // else 
+  //   thread_current()->child_p->load_status = 2; //load unsuccessfull
   
-  }
-  else 
-    thread_current()->child_p->load_status = 2; //load unsuccessfull
-  sema_up(&thread_current()->child_p->s_load);
+  /* 1 load successfull, 2 load unsuccessfull*/
+  thread_current()->pc_ptr->load_status = (success) ? 1 : 2;
+  sema_up(&thread_current()->pc_ptr->sema_load);
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
@@ -110,15 +112,15 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid UNUSED) 
 {
-  struct child_process* child = find_child(child_tid);
-  if(child == NULL || child->wait) return -1;
-  child->wait = 1;
-  if(!child->exit_status){
-    sema_down(&child->s_exit);
+  struct parent_child* pc = find_pc(child_tid);
+  if(pc == NULL || pc->exit) return -1;
+  pc->exit = 1;
+  if(!pc->alive_count){
+    sema_down(&pc->sema_exit);
   }
-  int exit_status = child->status;
-  list_remove(&child->elem);
-  free(child);
+  int exit_status = pc->status;
+  list_remove(&pc->elem);
+  free(pc);
   return exit_status;
 }
 
@@ -130,11 +132,12 @@ process_exit (void)
   uint32_t *pd;
 
   /*labb 3*/
-  if (thread_alive(cur->parent)){
-    cur->child_p->exit_status = 1;
-    sema_up(&cur->child_p->s_exit);
-  }
 
+  if (thread_alive(cur->parent_id)){
+  cur->pc_ptr->alive_count = 1;
+  sema_up(&cur->pc_ptr->sema_exit);
+  }
+  
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
   pd = cur->pagedir;
