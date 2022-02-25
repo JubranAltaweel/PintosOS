@@ -115,6 +115,7 @@ syscall_handler (struct intr_frame *f UNUSED)
    
     read_args(f,&arg[0], 1);
     f->eax = wait((pid_t)arg[0]);
+    break;
   }
 
 
