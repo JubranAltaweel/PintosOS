@@ -588,7 +588,7 @@ int thread_alive(tid_t tid){
 struct parent_child* init_pc(pid_t pid){
   struct parent_child *pc = malloc(sizeof(struct parent_child));
   pc->pid = pid;
-  //cp->exit_status = 0; 
+
   pc->alive_count = 0;
  
   pc->load_status = 0; // not loaded
