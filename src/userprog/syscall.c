@@ -16,7 +16,7 @@
 #include "userprog/pagedir.h"
 #include "threads/vaddr.h"
 
-typedef int pid_t;
+
 
 static void syscall_handler (struct intr_frame *);
 void halt(void);
