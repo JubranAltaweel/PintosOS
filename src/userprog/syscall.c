@@ -55,13 +55,11 @@ syscall_handler (struct intr_frame *f UNUSED)
   switch (*sys_call_no)
   {
   case SYS_HALT:
-    //printf("\nHalt\n");
     halt();
     break;
   
   case SYS_CREATE:
-    //printf("\nCreate\n");
-    
+
     read_args(f, &arg[0], 2);
     validate_string((const void*) arg[0]);
     bool succesfull = create((const char*)arg[0], (unsigned)arg[1]);
@@ -69,7 +67,6 @@ syscall_handler (struct intr_frame *f UNUSED)
     break;
 
   case SYS_OPEN:
-    //printf("\nopen\n");
     
     read_args(f, &arg[0], 1);
     validate_string((const void*) arg[0]);
@@ -78,14 +75,12 @@ syscall_handler (struct intr_frame *f UNUSED)
     break;
   
   case SYS_CLOSE:
-    //printf("\nClose\n");
     
     read_args(f, &arg[0], 1);
     close((int)arg[0]);
     break;
   
   case SYS_READ:
-    //printf("\nRead\n");
 
     read_args(f, &arg[0], 3);
     validate_buffer((const void*) arg[1], (unsigned)arg[2]);
@@ -94,7 +89,6 @@ syscall_handler (struct intr_frame *f UNUSED)
     break;
 
   case SYS_WRITE:
-    //printf("\nWrite\n");
     
     read_args(f, &arg[0], 3);
     validate_buffer((const void*) arg[1], (unsigned)arg[2]);
@@ -104,22 +98,21 @@ syscall_handler (struct intr_frame *f UNUSED)
     break;
 
   case SYS_EXIT:
-    //printf("\nExit\n");
+
     read_args(f, &arg[0], 1);
     exit((int)arg[0]);
     break;
   
   case SYS_EXEC:
-    //printf("\nExec\n");
+   
     read_args(f, &arg[0], 1);
-
     validate_string((const void*) arg[0]);
     arg[0] = get_pagepointer((const void*) arg[0]);
     f->eax = exec((const char*)arg[0]);
     break;
   
   case SYS_WAIT:
-    //printf("\nWait\n");
+   
     read_args(f,&arg[0], 1);
     f->eax = wait((pid_t)arg[0]);
   }

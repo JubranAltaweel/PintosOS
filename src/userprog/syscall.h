@@ -4,7 +4,6 @@
 #include "threads/synch.h"
 
 
-typedef int pid_t;
 
 void syscall_init (void);
 void remove_all_cp(void);

@@ -74,12 +74,6 @@ start_process (void *file_name_)
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load (file_name, &if_.eip, &if_.esp, &sptr); //add &sptr
 
-  /* labb 3 */
-  // if (success){
-  //   thread_current()->pc_ptr->load_status = 1; //load successfull
-  // }
-  // else 
-  //   thread_current()->child_p->load_status = 2; //load unsuccessfull
   
   /* 1 load successfull, 2 load unsuccessfull*/
   thread_current()->pc_ptr->load_status = (success) ? 1 : 2;
@@ -134,8 +128,8 @@ process_exit (void)
   /*labb 3*/
 
   if (thread_alive(cur->parent_id)){
-  cur->pc_ptr->alive_count = 1;
-  sema_up(&cur->pc_ptr->sema_exit);
+    cur->pc_ptr->alive_count = 1;
+    sema_up(&cur->pc_ptr->sema_exit);
   }
   
   /* Destroy the current process's page directory and switch back
