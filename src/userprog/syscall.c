@@ -28,17 +28,22 @@ int write(int fd, const void* buffer, unsigned size);
 void exit(int status); 
 int wait(pid_t pid);
 pid_t exec(const char* cmd_line);
+bool remove(const char* file_name);
+int filesize(int fd);
+void seek(int fd, unsigned position);
+unsigned tell(int fd);
+
 struct file* aquire_file(int fd);
 void read_args(struct intr_frame *f, int* args, int size);
-
 void remove_all_pc(void);
-
 void remove_pc(struct parent_child* pc);
 void close_all_files(void);
 void validate_pointer(const void* ptr);
 void validate_string(const void* string);
 void validate_buffer(const void* buffer, unsigned size);
 int get_pagepointer(const void* pointer);
+
+bool INIT_LOCK = false;
 
 void
 syscall_init (void) 
@@ -49,6 +54,11 @@ syscall_init (void)
 static void
 syscall_handler (struct intr_frame *f UNUSED) 
 {
+
+  if(!INIT_LOCK){
+    lock_init(&filesys_lock);
+    INIT_LOCK = true;
+  }
   //printf ("\nsystem call!\n");
   int* sys_call_no =(int *) get_pagepointer((const void*)f->esp);
   int arg[3];
@@ -116,6 +126,29 @@ syscall_handler (struct intr_frame *f UNUSED)
     read_args(f,&arg[0], 1);
     f->eax = wait((pid_t)arg[0]);
     break;
+  
+  case SYS_REMOVE:
+    read_args(f, &arg[0], 1);
+    validate_string((const void*) arg[0]);
+    arg[0] = get_pagepointer((const void*) arg[0]);
+    f->eax = remove((const char*) arg[0]);
+    break;
+
+  case SYS_FILESIZE:
+    read_args(f, &arg[0], 1);
+    f->eax = filesize(arg[0]);
+    break;
+
+  case SYS_SEEK:
+    read_args(f, &arg[0], 2);
+    seek(arg[0], (unsigned)arg[1]);
+    break;
+    
+  case SYS_TELL:
+
+    read_args(f, &arg[0], 1);
+    f->eax = tell(arg[0]);
+    break;
   }
 
 
@@ -125,14 +158,18 @@ void halt(void){
 }
 
 bool create(const char* file, unsigned initial_size){
+  lock_acquire(&filesys_lock);
   bool result = filesys_create(file, initial_size);
+  lock_release(&filesys_lock);
   return result;
 }
 
 
 int open(const char *file){
+  lock_acquire(&filesys_lock);
   struct file* file_open = filesys_open(file);
   if(!file_open){
+    lock_release(&filesys_lock);
     return -1;
   }
   
@@ -141,11 +178,13 @@ int open(const char *file){
   p_file->fd = thread_current()->fd;
   thread_current()->fd ++;
   list_push_back(&thread_current()->files, &p_file->elem);
+  lock_release(&filesys_lock);
   return p_file->fd;
 }
 
 
 void close(int fd){
+  lock_acquire(&filesys_lock);
   struct thread* t_curr = thread_current();
   struct list_elem* next;
 
@@ -160,7 +199,9 @@ void close(int fd){
           }
 
         }
+  lock_release(&filesys_lock);
 }
+
 int read (int fd, void *buffer, unsigned size){
   
   if (fd == 0){
@@ -172,10 +213,14 @@ int read (int fd, void *buffer, unsigned size){
     return size;
   }
  
-
+  lock_acquire(&filesys_lock);
   struct file* p_file = aquire_file(fd);
-  if(!p_file) return -1;
+  if(!p_file){
+    lock_release(&filesys_lock);
+    return -1;
+  }
   int length = file_read(p_file, buffer, size);
+  lock_release(&filesys_lock);  
   return length;
 
 }
@@ -186,10 +231,14 @@ int write(int fd, const void* buffer, unsigned size){
     putbuf(buffer, size);
     return size;
   }
-
+  lock_acquire(&filesys_lock);
   struct file* p_file = aquire_file(fd);
-  if(!p_file) return -1;
+  if(!p_file){
+    lock_release(&filesys_lock);
+    return -1;
+  }
   int length = file_write(p_file, buffer, size);
+  lock_release(&filesys_lock);  
   return length;
 }
 
@@ -202,8 +251,6 @@ void exit(int status){
     cur->pc_ptr->status = status;
     //cur->parent->status = status;
   }
-  
-
   close_all_files();
   remove_all_pc();
   printf("%s: exit(%d)\n", cur->name, status);
@@ -230,6 +277,48 @@ int wait(pid_t pid){
   return process_wait(pid);
 }
 
+bool remove(const char* file_name){
+  lock_acquire(&filesys_lock);
+  bool result = filesys_remove(file_name);
+  lock_release(&filesys_lock);
+  return result;
+}
+
+int filesize(int fd){
+  lock_acquire(&filesys_lock);
+  struct file* file = aquire_file(fd);
+  if(!file){
+    lock_release(&filesys_lock);
+    return -1;
+  }
+  int size = file_length(file);
+  lock_release(&filesys_lock);
+  return size;
+}
+
+void seek(int fd, unsigned position){
+  lock_acquire(&filesys_lock);
+  struct file* file = aquire_file(fd);
+   if(!file){
+    lock_release(&filesys_lock);
+    return -1;
+  }
+  file_seek(file, position);
+  lock_release(&filesys_lock);
+}
+
+unsigned tell(int fd){
+  lock_acquire(&filesys_lock);
+  struct file* file = aquire_file(fd);
+   if(!file){
+    lock_release(&filesys_lock);
+    return -1;
+  }
+
+  off_t off = file_tell(file);
+  lock_release(&filesys_lock);
+  return off;
+}
 
 struct file* aquire_file(int fd){
   struct thread* t_curr = thread_current();
