@@ -8,7 +8,6 @@ typedef int pid_t;
 void syscall_init (void);
 void remove_all_cp(void);
 struct parent_child* find_pc(pid_t pid);
-struct lock filesys_lock;
 
 struct parent_child{
     pid_t pid;
