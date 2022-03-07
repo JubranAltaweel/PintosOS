@@ -29,6 +29,7 @@ free_map_init (void)
 bool
 free_map_allocate (size_t cnt, disk_sector_t *sectorp) 
 {
+  
   disk_sector_t sector = bitmap_scan_and_flip (free_map, 0, cnt, false);
   lock_acquire (&free_map_lock);
 
@@ -50,9 +51,11 @@ free_map_allocate (size_t cnt, disk_sector_t *sectorp)
 void
 free_map_release (disk_sector_t sector, size_t cnt)
 {
+  lock_acquire (&free_map_lock);
   ASSERT (bitmap_all (free_map, sector, cnt));
   bitmap_set_multiple (free_map, sector, cnt, false);
   bitmap_write (free_map, free_map_file);
+  lock_release (&free_map_lock);
 }
 
 /* Opens the free map file and reads it from disk. */

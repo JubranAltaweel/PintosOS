@@ -90,7 +90,7 @@ inode_create (disk_sector_t sector, off_t length)
   ASSERT (sizeof *disk_inode == DISK_SECTOR_SIZE);
 
   disk_inode = calloc (1, sizeof *disk_inode);
-  lock_acquire (&inode_list_lock);
+  //lock_acquire (&inode_list_lock);
   if (disk_inode != NULL)
     {
       size_t sectors = bytes_to_sectors (length);
@@ -111,7 +111,7 @@ inode_create (disk_sector_t sector, off_t length)
         } 
       free (disk_inode);
     }
-  lock_release (&inode_list_lock);
+  //lock_release (&inode_list_lock);
   return success;
 }
 
@@ -209,8 +209,10 @@ inode_close (struct inode *inode)
                             bytes_to_sectors (inode->data.length)); 
         }
 
-      free (inode);
+      
       lock_release (&inode_list_lock);
+      free (inode);
+      //lock_release (&inode->inode_lock);
       return;
     }
   
@@ -224,7 +226,9 @@ void
 inode_remove (struct inode *inode) 
 {
   ASSERT (inode != NULL);
+  lock_acquire (&inode->inode_lock);
   inode->removed = true;
+  lock_release (&inode->inode_lock);
 }
 
 /* Reads SIZE bytes from INODE into BUFFER, starting at position OFFSET.
@@ -286,15 +290,15 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
       offset += chunk_size;
       bytes_read += chunk_size;
     }
+  
   free (bounce);
-
   sema_down (&inode->rmutex);
   inode->queue_cnt --;
   if (inode->queue_cnt == 0)
     sema_up (&inode->resource);
   sema_up (&inode->rmutex);
   //lock_release (&inode->inode_lock);
-
+  
   return bytes_read;
 }
 
@@ -311,13 +315,13 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
   off_t bytes_written = 0;
   uint8_t *bounce = NULL;
 
-  sema_down (&inode->serviceQueue);
-  sema_down (&inode->resource);
-  sema_up (&inode->serviceQueue);
+  
 
   if (inode->deny_write_cnt)
     return 0;
-
+  sema_down (&inode->serviceQueue);
+  sema_down (&inode->resource);
+  sema_up (&inode->serviceQueue);
   while (size > 0) 
     {
       /* Sector to write, starting byte offset within sector. */
@@ -366,8 +370,8 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
       bytes_written += chunk_size;
     }
   free (bounce);
-
   sema_up (&inode->resource);
+  
   return bytes_written;
 }
 
@@ -376,7 +380,9 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
 void
 inode_deny_write (struct inode *inode) 
 {
+  lock_acquire (&inode->inode_lock);
   inode->deny_write_cnt++;
+  lock_release (&inode->inode_lock);
   ASSERT (inode->deny_write_cnt <= inode->open_cnt);
 }
 
@@ -388,7 +394,9 @@ inode_allow_write (struct inode *inode)
 {
   ASSERT (inode->deny_write_cnt > 0);
   ASSERT (inode->deny_write_cnt <= inode->open_cnt);
+  lock_acquire (&inode->inode_lock);
   inode->deny_write_cnt--;
+  lock_release (&inode->inode_lock);
 }
 
 /* Returns the length, in bytes, of INODE's data. */

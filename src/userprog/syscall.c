@@ -69,6 +69,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 
     read_args(f, &arg[0], 2);
     validate_string((const void*) arg[0]);
+    arg[0] = get_pagepointer((const void*)arg[0]);
     bool succesfull = create((const char*)arg[0], (unsigned)arg[1]);
     f->eax = succesfull;
     break;
@@ -77,6 +78,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     
     read_args(f, &arg[0], 1);
     validate_string((const void*) arg[0]);
+    arg[0] = get_pagepointer((const void*)arg[0]);
     int result = open((const char*)arg[0]);
     f->eax = result;
     break;
@@ -129,7 +131,7 @@ syscall_handler (struct intr_frame *f UNUSED)
   case SYS_REMOVE:
     read_args(f, &arg[0], 1);
     validate_string((const void*) arg[0]);
-    //arg[0] = get_pagepointer((const void*) arg[0]);
+    arg[0] = get_pagepointer((const void*) arg[0]);
     f->eax = remove((const char*) arg[0]);
     break;
 
